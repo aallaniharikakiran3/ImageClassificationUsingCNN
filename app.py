@@ -1,29 +1,28 @@
 import streamlit as st
-import torch
-import torchvision.transforms as transforms
-from PIL import Image
+import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
+from PIL import Image
 
-# Title
-st.title("🔍 Anomaly Detection using ResNet + Autoencoder")
+st.title("🔍 Image Classification")
 
-st.write("Upload an image to check whether it is Normal or Anomalous.")
+st.write("Upload an image to get prediction from the trained model.")
 
 # Load model
 @st.cache_resource
 def load_model():
-    model = torch.load("face_recognition_model.h5", map_location=torch.device('cpu'))
-    model.eval()
+    model = tf.keras.models.load_model("face_recognition_model.h5")
     return model
 
 model = load_model()
 
-# Image transform
-transform = transforms.Compose([
-    transforms.Resize((224,224)),
-    transforms.ToTensor()
-])
+# Image preprocessing
+def preprocess_image(image):
+
+    img = image.resize((224,224))
+    img = np.array(img)/255.0
+    img = np.expand_dims(img, axis=0)
+
+    return img
 
 # Upload image
 uploaded_file = st.file_uploader("Upload Image", type=["jpg","png","jpeg"])
@@ -31,21 +30,17 @@ uploaded_file = st.file_uploader("Upload Image", type=["jpg","png","jpeg"])
 if uploaded_file is not None:
 
     image = Image.open(uploaded_file).convert("RGB")
+
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    img = transform(image).unsqueeze(0)
+    img = preprocess_image(image)
 
-    with torch.no_grad():
-        output = model(img)
+    prediction = model.predict(img)
 
-    # reconstruction error
-    loss = torch.mean((img - output) ** 2).item()
+    st.subheader("Prediction")
 
-    threshold = 0.02   # adjust based on training
+    st.write(prediction)
 
-    st.write("### Reconstruction Error:", loss)
+    class_id = np.argmax(prediction)
 
-    if loss > threshold:
-        st.error("⚠️ Anomaly Detected")
-    else:
-        st.success("✅ Normal Image")
+    st.success(f"Predicted Class: {class_id}")
